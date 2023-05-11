@@ -1,21 +1,27 @@
-from pathlib import Path
+import re
 from argparse import ArgumentParser
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable
+
 from ament_index_python import get_package_share_directory
 from jinja2 import Environment, FileSystemLoader
-from dataclasses import dataclass
 from rcl_interfaces.msg import ParameterType
+from ros2node.api import TopicInfo
+
 
 @dataclass
 class Message:
     name: str
     message: dict
-    
+
+
 @dataclass
 class Service:
     name: str
     request: dict
     response: dict
+
 
 @dataclass
 class Action:
@@ -37,10 +43,11 @@ def get_spec_files(path: Path, glob: str) -> list:
     """
     return [f for f in path.glob(glob) if f.is_file()]
 
+
 def prepare_output_dir(output_dir: Path):
     output_dir.mkdir(parents=True, exist_ok=True)
 
-import re
+
 def split_line(line: str):
     """Split a line into a tuple of type and name.
 
@@ -50,23 +57,28 @@ def split_line(line: str):
     Returns:
         tuple: The type and name of the line.
     """
-    line = line.replace('\n', '')
+    line = line.replace("\n", "")
     if line.startswith("#") or "=" in line or len(line) == 0 or line.isspace():
         return None, None
     if "#" in line:
         line = line.split("#")[0]
     if line.isspace():
         return None, None
-    line = re.sub(
-           r"\[.*\]", 
-           "[]", 
-           line
-       )
+    line = re.sub(r"\[.*\]", "[]", line)
     split = line.split(maxsplit=1)
-    
+
     split[0] = split[0].replace("/", ".")
-        
-    return split[0].strip(), split[1].strip()
+    if len(split) > 1:
+        return split[0].strip(), split[1].strip()
+    else:
+        return split[0].strip(), None
+
+
+def process_message_type(typename: str):
+    if "[]" in typename:
+        typename = typename.replace("[]", "")
+        typename = f"[{typename}]"
+    return typename
 
 
 def process_msg_file(msg_file: Path):
@@ -75,9 +87,9 @@ def process_msg_file(msg_file: Path):
     message = {}
     file = msg_file.open()
     for line in file:
-        if '=' in line:
+        if "=" in line:
             continue
-        line = line.replace('\n', '')
+        line = line.replace("\n", "")
         if len(line) == 0:
             continue
         typename, variablename = split_line(line)
@@ -86,12 +98,13 @@ def process_msg_file(msg_file: Path):
         if variablename is None:
             continue
         res = any(ele.isupper() for ele in typename)
-        if(res):
+        if res:
             typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
-        message[variablename] = typename
+            typename = process_message_type(typename)
+        message[variablename] = process_message_type(typename)
     file.close()
     return name, message
+
 
 def process_srv_file(srv_file: Path):
     """Process a message file."""
@@ -101,7 +114,7 @@ def process_srv_file(srv_file: Path):
     file = srv_file.open()
     resp = False
     for line in file:
-        if '---' in line:
+        if "---" in line:
             resp = True
             continue
         typename, variablename = split_line(line)
@@ -110,15 +123,16 @@ def process_srv_file(srv_file: Path):
         if variablename is None:
             continue
         res = any(ele.isupper() for ele in typename)
-        if(res):
+        if res:
             typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
+            typename = process_message_type(typename)
         if resp:
-            response[variablename] = typename
+            response[variablename] = process_message_type(typename)
         else:
-            request[variablename] = typename
+            request[variablename] = process_message_type(typename)
     file.close()
     return name, request, response
+
 
 def process_action_file(action_file: Path):
     """Process an aciton file."""
@@ -129,7 +143,7 @@ def process_action_file(action_file: Path):
     file = action_file.open()
     border = 0
     for line in file:
-        if '---' in line:
+        if "---" in line:
             border += 1
             continue
         typename, variablename = split_line(line)
@@ -138,17 +152,18 @@ def process_action_file(action_file: Path):
         if variablename is None:
             continue
         res = any(ele.isupper() for ele in typename)
-        if(res):
+        if res:
             typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
+            typename = process_message_type(typename)
         if border == 0:
-            goal[variablename] = typename
+            goal[variablename] = process_message_type(typename)
         if border == 1:
-            result[variablename] = typename
+            result[variablename] = process_message_type(typename)
         if border == 2:
-            feedback[variablename] = typename
+            feedback[variablename] = process_message_type(typename)
     file.close()
     return name, goal, result, feedback
+
 
 def process_msg_dir(msg_path: Path):
     msg_files = get_spec_files(msg_path, "*.msg")
@@ -159,6 +174,7 @@ def process_msg_dir(msg_path: Path):
         msgs.append(msg)
     return msgs
 
+
 def process_srv_dir(msg_path: Path):
     srv_files = get_spec_files(msg_path, "*.srv")
     srvs = []
@@ -167,6 +183,7 @@ def process_srv_dir(msg_path: Path):
         srv = Service(name, request, response)
         srvs.append(srv)
     return srvs
+
 
 def process_action_dir(msg_path: Path):
     action_files = get_spec_files(msg_path, "*.action")
@@ -177,39 +194,40 @@ def process_action_dir(msg_path: Path):
         actions.append(action)
     return actions
 
-from ros2node.api import TopicInfo
 
-def fix_topic_types(node_name:str , topics: Iterable[TopicInfo]):
+def fix_topic_types(node_name: str, topics: Iterable[TopicInfo]):
     for topic in topics:
         if "/" not in topic.types[0]:
             topic.types[0] = '"' + topic.types[0] + '"'
         topic.types[0] = topic.types[0].replace("/msg/", ".")
         topic.types[0] = topic.types[0].replace("/srv/", ".")
         topic.types[0] = topic.types[0].replace("/action/", ".")
-        #topic.name = topic.name.replace("node_name", "")
-        #topic.name = topic.name.replace("/", "")
+        # topic.name = topic.name.replace("node_name", "")
+        # topic.name = topic.name.replace("/", "")
 
-def fix_topic_names(node_name:str , topics: Iterable[TopicInfo]) -> Iterable[TopicInfo]:
+
+def fix_topic_names(node_name: str, topics: Iterable[TopicInfo]) -> Iterable[TopicInfo]:
     new_topics = []
     for topic in topics:
         if not node_name.startswith("/"):
             node_name = "/node_name"
         name = topic.name.replace(node_name, "~")
-        #name = name.replace("/", "")
+        # name = name.replace("/", "")
         new_topics.append(TopicInfo(name, topic.types))
     return new_topics
 
+
 def get_parameter_type_string(parameter_type):
     mapping = {
-        ParameterType.PARAMETER_BOOL: 'Boolean',
-        ParameterType.PARAMETER_INTEGER: 'Integer',
-        ParameterType.PARAMETER_DOUBLE: 'Double',
-        ParameterType.PARAMETER_STRING: 'String',
-        ParameterType.PARAMETER_BYTE_ARRAY: 'Array: Byte',
-        ParameterType.PARAMETER_BOOL_ARRAY: 'Array: Boolean',
-        ParameterType.PARAMETER_INTEGER_ARRAY: 'Array: Integer',
-        ParameterType.PARAMETER_DOUBLE_ARRAY: 'Array: Double',
-        ParameterType.PARAMETER_STRING_ARRAY: 'Array: String',
-        ParameterType.PARAMETER_NOT_SET: 'Any',
+        ParameterType.PARAMETER_BOOL: "Boolean",
+        ParameterType.PARAMETER_INTEGER: "Integer",
+        ParameterType.PARAMETER_DOUBLE: "Double",
+        ParameterType.PARAMETER_STRING: "String",
+        ParameterType.PARAMETER_BYTE_ARRAY: "Array: Byte",
+        ParameterType.PARAMETER_BOOL_ARRAY: "Array: Boolean",
+        ParameterType.PARAMETER_INTEGER_ARRAY: "Array: Integer",
+        ParameterType.PARAMETER_DOUBLE_ARRAY: "Array: Double",
+        ParameterType.PARAMETER_STRING_ARRAY: "Array: String",
+        ParameterType.PARAMETER_NOT_SET: "Any",
     }
     return mapping[parameter_type]

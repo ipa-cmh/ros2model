@@ -1,5 +1,5 @@
-from ros2cli.plugin_system import PLUGIN_SYSTEM_VERSION
-from ros2cli.plugin_system import satisfies_version
+from ros2cli.plugin_system import PLUGIN_SYSTEM_VERSION, satisfies_version
+
 
 class VerbExtension:
     """
