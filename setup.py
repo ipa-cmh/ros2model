@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 package_name = 'ros2model'
 
@@ -10,7 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/templates', ['templates/model.jinja', 'templates/node_model.jinja'])
+        ('share/' + package_name + '/templates',
+         ['templates/model.jinja', 'templates/node_model.jinja'])
     ],
     install_requires=['ros2cli'],
     zip_safe=True,
