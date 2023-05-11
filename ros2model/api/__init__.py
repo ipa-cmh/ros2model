@@ -74,6 +74,13 @@ def split_line(line: str):
         return split[0].strip(), None
 
 
+def process_message_type(typename: str):
+    if "[]" in typename:
+        typename = typename.replace("[]", "")
+        typename = f"[{typename}]"
+    return typename
+
+
 def process_msg_file(msg_file: Path):
     """Process a message file."""
     name = msg_file.stem
@@ -93,8 +100,8 @@ def process_msg_file(msg_file: Path):
         res = any(ele.isupper() for ele in typename)
         if res:
             typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
-        message[variablename] = typename
+            typename = process_message_type(typename)
+        message[variablename] = process_message_type(typename)
     file.close()
     return name, message
 
@@ -118,11 +125,11 @@ def process_srv_file(srv_file: Path):
         res = any(ele.isupper() for ele in typename)
         if res:
             typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
+            typename = process_message_type(typename)
         if resp:
-            response[variablename] = typename
+            response[variablename] = process_message_type(typename)
         else:
-            request[variablename] = typename
+            request[variablename] = process_message_type(typename)
     file.close()
     return name, request, response
 
@@ -147,13 +154,13 @@ def process_action_file(action_file: Path):
         res = any(ele.isupper() for ele in typename)
         if res:
             typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
+            typename = process_message_type(typename)
         if border == 0:
-            goal[variablename] = typename
+            goal[variablename] = process_message_type(typename)
         if border == 1:
-            result[variablename] = typename
+            result[variablename] = process_message_type(typename)
         if border == 2:
-            feedback[variablename] = typename
+            feedback[variablename] = process_message_type(typename)
     file.close()
     return name, goal, result, feedback
 
