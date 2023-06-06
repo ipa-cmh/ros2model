@@ -23,18 +23,19 @@ class InterfacePackageVerb(VerbExtension):
             help="The output file for the generated model.")
         
     def main(self, *, args):
-        package_share_path = get_package_share_directory(args.interface_package_name)
+        package_name = args.interface_package_name
+        package_share_path = get_package_share_directory(package_name)
         msg_path = Path(package_share_path) / "msg"
         srv_path = Path(package_share_path) / "srv"
         actions_path = Path(package_share_path) / "action"
-        msgs = process_msg_dir(msg_path)
-        srvs = process_srv_dir(srv_path)
-        actions = process_action_dir(actions_path)
+        msgs = process_msg_dir(msg_path, package_name)
+        srvs = process_srv_dir(srv_path, package_name)
+        actions = process_action_dir(actions_path, package_name)
         print("Found {} messages, {} services and {} actions.".format(len(msgs), len(srvs), len(actions)))
         env = Environment(
             loader=FileSystemLoader(get_package_share_directory("ros2model") + "/templates"), autoescape=False)
         template = env.get_template("model.jinja")
-        contents = template.render(package_name=args.interface_package_name, msgs=msgs, srvs=srvs, actions=actions)
+        contents = template.render(package_name=package_name, msgs=msgs, srvs=srvs, actions=actions)
         output_file = Path(args.output)
         print("Writing model to {}".format(output_file.absolute()))
         output_file.touch()

@@ -64,12 +64,12 @@ def split_line(line: str):
        )
     split = line.split(maxsplit=1)
     
-    split[0] = split[0].replace("/", ".")
+    split[0] = split[0].replace("/", "/msg/")
         
     return split[0].strip(), split[1].strip()
 
 
-def process_msg_file(msg_file: Path):
+def process_msg_file(msg_file: Path, package_name: str):
     """Process a message file."""
     name = msg_file.stem
     message = {}
@@ -80,20 +80,14 @@ def process_msg_file(msg_file: Path):
         line = line.replace('\n', '')
         if len(line) == 0:
             continue
-        typename, variablename = split_line(line)
+        variablename, typename = get_type_format(line, package_name)
         if typename is None:
             continue
-        if variablename is None:
-            continue
-        res = any(ele.isupper() for ele in typename)
-        if(res):
-            typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
         message[variablename] = typename
     file.close()
     return name, message
 
-def process_srv_file(srv_file: Path):
+def process_srv_file(srv_file: Path, package_name: str):
     """Process a message file."""
     name = srv_file.stem
     request = {}
@@ -104,15 +98,9 @@ def process_srv_file(srv_file: Path):
         if '---' in line:
             resp = True
             continue
-        typename, variablename = split_line(line)
+        variablename, typename = get_type_format(line, package_name)
         if typename is None:
             continue
-        if variablename is None:
-            continue
-        res = any(ele.isupper() for ele in typename)
-        if(res):
-            typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
         if resp:
             response[variablename] = typename
         else:
@@ -120,7 +108,7 @@ def process_srv_file(srv_file: Path):
     file.close()
     return name, request, response
 
-def process_action_file(action_file: Path):
+def process_action_file(action_file: Path, package_name: str):
     """Process an aciton file."""
     name = action_file.stem
     goal = {}
@@ -132,15 +120,9 @@ def process_action_file(action_file: Path):
         if '---' in line:
             border += 1
             continue
-        typename, variablename = split_line(line)
+        variablename, typename = get_type_format(line, package_name)
         if typename is None:
             continue
-        if variablename is None:
-            continue
-        res = any(ele.isupper() for ele in typename)
-        if(res):
-            typename = '"' + typename + '"'
-            typename = typename.replace("[]", "") + "[]"
         if border == 0:
             goal[variablename] = typename
         if border == 1:
@@ -150,29 +132,46 @@ def process_action_file(action_file: Path):
     file.close()
     return name, goal, result, feedback
 
-def process_msg_dir(msg_path: Path):
+def get_type_format(line: str, package_name: str):
+    primitive_types = ['bool','int8','uint8','int16','uint16',
+    'int32','uint32','int64','uint64','float32','float64',
+    'string','byte','time','duration','Header','bool[]',
+    'int8[]','uint8[]','int16[]','uint16[]','int32[]',
+    'uint32[]','int64[]','uint64[]','float32[]','float64[]',
+    'string[]','byte[]']
+    typename, variablename = split_line(line)
+    if typename is not None:
+        if(typename not in primitive_types):
+            #For ROS messages if the referenced interface is created within the same package where is declared, the pacakge name doesn't have to be defined. For consistency on the description of messages we need it complete.
+            if('/' not in typename):
+                typename = package_name + "/msg/" + typename
+            typename = "'" + typename + "'"
+            typename = typename.replace("[]", "") + "[]"
+    return variablename, typename
+
+def process_msg_dir(msg_path: Path, package_name: str):
     msg_files = get_spec_files(msg_path, "*.msg")
     msgs = []
     for msg_file in msg_files:
-        name, message = process_msg_file(msg_file)
+        name, message = process_msg_file(msg_file, package_name)
         msg = Message(name, message)
         msgs.append(msg)
     return msgs
 
-def process_srv_dir(msg_path: Path):
+def process_srv_dir(msg_path: Path, package_name:str):
     srv_files = get_spec_files(msg_path, "*.srv")
     srvs = []
     for srv_file in srv_files:
-        name, request, response = process_srv_file(srv_file)
+        name, request, response = process_srv_file(srv_file, package_name)
         srv = Service(name, request, response)
         srvs.append(srv)
     return srvs
 
-def process_action_dir(msg_path: Path):
+def process_action_dir(msg_path: Path, package_name: str):
     action_files = get_spec_files(msg_path, "*.action")
     actions = []
     for action_file in action_files:
-        name, goal, result, feedback = process_action_file(action_file)
+        name, goal, result, feedback = process_action_file(action_file, package_name)
         action = Action(name, goal, result, feedback)
         actions.append(action)
     return actions

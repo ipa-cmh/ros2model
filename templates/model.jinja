@@ -1,36 +1,37 @@
 {{ package_name }}:
-    specs:
-      {% for msg in msgs -%}
-      - msg: {{ msg.name }}
-        message:
-          {%- for key, value in msg.message.items() %}
-          "{{ key }}": {{ value }}
-          {%- endfor %}
-      {% endfor -%}
-      {% for srv in srvs -%}
-      - srv: {{ srv.name }}
-        request:
-          {%- for key, value in srv.request.items() %}
-          "{{ key }}": {{ value }}
-          {%- endfor %}
-        response:
-          {%- for key, value in srv.response.items() %}
-          "{{ key }}": {{ value }}
-          {%- endfor %}
-      {% endfor %}
-      {% for action in actions -%}
-      - action: {{ action.name }}
-        goal:
-          {%- for key, value in action.goal.items() %}
-          "{{ key }}": {{ value }}
-          {%- endfor %}
-        result:
-          {%- for key, value in action.result.items() %}
-          "{{ key }}": {{ value }}
-          {%- endfor %}
-        feedback:
-          {%- for key, value in action.feedback.items() %}
-          "{{ key }}": {{ value }}
-          {%- endfor %}
-      {% endfor %}
-    
+  {% if msgs is defined and msgs|length > 0 %}msgs:
+    {% for msg in msgs -%}
+    {{ msg.name }}
+      message
+        {%- for key, value in msg.message.items() %}
+        {{ value }} {{ key }} 
+        {%- endfor %}
+    {% endfor -%}{% endif %}
+  {% if srvs is defined and srvs|length > 0 %}srvs:
+    {% for srv in srvs -%}
+    {{ srv.name }}
+      request
+        {%- for key, value in srv.request.items() %}
+        {{ value }} {{ key }} 
+        {%- endfor %}
+      response
+        {%- for key, value in srv.response.items() %}
+        {{ value }} {{ key }} 
+        {%- endfor %}
+    {% endfor %}{% endif %}
+  {% if actions is defined and actions|length > 0 %}actions:
+    {% for action in actions -%}
+    {{ action.name }}
+      goal
+        {%- for key, value in action.goal.items() %}
+        {{ value }} {{ key }} 
+        {%- endfor %}
+      result
+        {%- for key, value in action.result.items() %}
+        {{ value }} {{ key }} 
+        {%- endfor %}
+      feedback
+        {%- for key, value in action.feedback.items() %}
+        {{ value }} {{ key }} 
+        {%- endfor %}
+    {% endfor %}{% endif %}
